@@ -1,14 +1,12 @@
+# SPDX-License-Identifier: GPL-2.0-only
 #
 # Copyright (C) 2009-2018 OpenWrt.org
-#
-# This is free software, licensed under the GNU General Public License v2.
-# See /LICENSE for more information.
-#
+
 include $(TOPDIR)/rules.mk
 include $(INCLUDE_DIR)/image.mk
 
-define Build/copy-kernel
-	$(MAKE) -C copy-kernel CROSS_COMPILE=$(TARGET_CROSS)
+define Build/copy-kernel.bin
+	$(call locked,$(MAKE) -C copy-kernel CROSS_COMPILE=$(TARGET_CROSS) O=$(KDIR),gemini-copy-kernel.bin)
 endef
 
 # Cook a "WRGG" image, this board is apparently one in the D-Link
@@ -93,11 +91,10 @@ endef
 define Build/storlink-default-images
 	mkdir -p $@.tmp
 
-	$(call Build/copy-kernel)
 	# "App" partition is the rootfs
 	mv $@ $@.tmp/hddapp.tgz
 	# 256 bytes copy routine
-	dd if=copy-kernel/copy-kernel.bin of=$@.tmp/zImage
+	dd if=$(KDIR)/copy-kernel.bin of=$@.tmp/zImage
 	$(call Image/pad-to,$@.tmp/zImage,512)
 	# Copy first part of the kernel into zImage
 	dd if=$(IMAGE_KERNEL) of=$@.tmp/zImage bs=1 seek=512 count=2096640
@@ -131,17 +128,17 @@ define Device/Default
 	KERNEL_NAME := zImage
 	KERNEL := kernel-bin | append-dtb
 	BLOCKSIZE := 128k
-	SUPPORTED_DEVICES := $(subst _,$(comma),$(1))
 endef
 
 # A reasonable set of default packages handling the NAS type
 # of devices out of the box (former NAS42x0 IcyBox defaults)
-GEMINI_NAS_PACKAGES:=kmod-md-mod kmod-md-linear kmod-md-multipath \
+GEMINI_NAS_PACKAGES := $(DEFAULT_PACKAGES.nas) \
+		kmod-md-mod kmod-md-linear kmod-md-multipath \
 		kmod-md-raid0 kmod-md-raid1 kmod-md-raid10 kmod-md-raid456 \
 		kmod-fs-btrfs kmod-fs-cifs kmod-fs-nfs \
 		kmod-fs-nfsd kmod-fs-ntfs kmod-fs-reiserfs kmod-fs-vfat \
-		kmod-nls-utf8 kmod-usb-storage-extras \
-		samba36-server mdadm cfdisk fdisk e2fsprogs badblocks \
+		kmod-nls-utf8 kmod-usb-storage-extras kmod-hwmon-drivetemp \
+		cfdisk e2fsprogs badblocks \
 		partx-utils
 
 # The DIR-685 flash layout is kernel in WRGG format, padded and followed
@@ -171,7 +168,6 @@ define Device/dlink_dns-313
 	DEVICE_VENDOR := D-Link
 	DEVICE_MODEL := DNS-313 1-Bay Network Storage Enclosure
 	DEVICE_DTS := gemini-dlink-dns-313
-	DEVICE_TYPE := nas
 	DEVICE_PACKAGES := $(GEMINI_NAS_PACKAGES)
 	BLOCKSIZE := 1k
 	FILESYSTEMS := ext4
@@ -182,6 +178,8 @@ TARGET_DEVICES += dlink_dns-313
 
 # Default images setup used by the StorLink reference designs
 define Device/storlink-reference
+	COMPILE := copy-kernel-$(1).bin
+	COMPILE/copy-kernel-$(1).bin := copy-kernel.bin
 	IMAGES := factory.bin
 	IMAGE/factory.bin := append-rootfs | pad-rootfs | pad-to 6144k | \
 		storlink-default-images $(1)
@@ -202,7 +200,6 @@ define Device/raidsonic_ib-4220-b
 	DEVICE_VENDOR := Raidsonic
 	DEVICE_MODEL := NAS IB-4220-B
 	DEVICE_DTS := gemini-nas4220b
-	DEVICE_TYPE := nas
 endef
 TARGET_DEVICES += raidsonic_ib-4220-b
 

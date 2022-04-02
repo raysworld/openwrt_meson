@@ -18,7 +18,11 @@ PKG_SOURCE_URL:= \
 	http://distcache.freebsd.org/ports-distfiles/
 HOST_BUILD_PARALLEL:=1
 
+HOST_FIXUP:=autoreconf
+
 include $(INCLUDE_DIR)/host-build.mk
+
+PKG_REMOVE_FILES :=
 
 HOST_CONFIGURE_ARGS += \
 	--disable-shared \
@@ -37,15 +41,17 @@ define Host/Compile
 endef
 
 define Host/Install
-	$(INSTALL_DIR) $(STAGING_DIR_HOST)/{lib,include/libelf}
+	$(INSTALL_DIR) $(STAGING_DIR_HOST)/{lib/pkgconfig,include/libelf}
 	$(CP) $(HOST_BUILD_DIR)/lib/{elf_repl.h,gelf.h,libelf.h,nlist.h,sys_elf.h} \
 						$(STAGING_DIR_HOST)/include/libelf/
 	$(CP) $(HOST_BUILD_DIR)/lib/libelf.a $(STAGING_DIR_HOST)/lib/
+	$(CP) $(HOST_BUILD_DIR)/libelf.pc $(STAGING_DIR_HOST)/lib/pkgconfig/
 endef
 
 define Host/Clean
 	rm -rf $(STAGING_DIR_HOST)/include/libelf
 	rm -f $(STAGING_DIR_HOST)/lib/libelf.a
+	rm -f $(STAGING_DIR_HOST)/lib/pkgconfig/libelf.pc
 	$(call Host/Clean/Default)
 endef
 
